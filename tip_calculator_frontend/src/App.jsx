@@ -78,16 +78,6 @@ function App() {
     })
   }, [billParsed.error, tipParsed.error])
 
-  useTizenKeys({
-    // Step 2: Keep remote ENTER usability by focusing the primary action.
-    // NOTE: Do not change key handling until Step 4.
-    onEnter: () => {
-      const btn = document.getElementById('calculateBtn')
-      btn?.click?.()
-    },
-    onBack: () => console.log('Back pressed'),
-  })
-
   function handleBillAmountChange(e) {
     const next = e.target.value
     // Allow empty; keep as string to avoid fighting user typing (e.g. "12.", "0.5")
@@ -127,6 +117,49 @@ function App() {
     setTipAmount(tip)
     setTotalAmount(total)
   }
+
+  function clearAll() {
+    setBillAmount('')
+    setCustomTipPct('')
+    setSelectedTipPct(15)
+    setTipAmount(null)
+    setTotalAmount(null)
+    setErrors({ billAmount: '', tipPercent: '' })
+  }
+
+  const hasAnyData =
+    billAmount.trim().length > 0 ||
+    customTipPct.trim().length > 0 ||
+    tipAmount != null ||
+    totalAmount != null
+
+  useTizenKeys({
+    // Minimal + scoped remote handling:
+    // - ENTER should only "press" Calculate if that button currently has focus (like a TV remote).
+    // - BACK clears current state if there is any data; otherwise, fall back to history navigation.
+    onEnter: () => {
+      const active = document.activeElement
+      const btn = document.getElementById('calculateBtn')
+
+      // Only trigger when focused on the Calculate button; avoids interfering with typing in inputs.
+      if (btn && active === btn && canCalculate) {
+        handleCalculate()
+      }
+    },
+    onBack: () => {
+      // If the user has entered anything (or already has results), BACK behaves like "clear".
+      if (hasAnyData) {
+        clearAll()
+        return
+      }
+
+      // Otherwise, preserve normal "go back" browser behavior when possible.
+      if (typeof window !== 'undefined' && window.history && window.history.length > 1) {
+        window.history.back()
+      }
+      // If there is no history entry, do nothing (safe no-op for standalone Tizen app shells).
+    },
+  })
 
   const billHelpId = 'bill-help'
   const billErrorId = 'bill-error'
@@ -199,7 +232,7 @@ function App() {
                     ? '1px solid rgba(239, 68, 68, 0.55)'
                     : '1px solid var(--color-border)',
                   background: 'var(--color-surface)',
-                  color: var(--color-text),
+                  color: 'var(--color-text)',
                   boxShadow: 'var(--shadow-sm)',
                   outline: 'none',
                 }}
